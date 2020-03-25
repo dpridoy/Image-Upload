@@ -1,5 +1,4 @@
 package com.dpridoy.imageupload;
-
 import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
 import android.database.Cursor;
@@ -12,7 +11,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import java.io.File;
-
+import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
@@ -59,23 +58,16 @@ public class MainActivity extends AppCompatActivity implements ProgressRequestBo
     private void upload() {
         Retrofit retrofit=RetrofitClient.getRetrofitClient(this);
         Api api=retrofit.create(Api.class);
-        Log.e("Image Path",selectedImageUri.getPath());
-
-        File file = new File("/storage/emulated/0/DCIM/Camera/IMG_20200324_170456.jpg");
+        File file = new File(selectedImagePath);
         ProgressRequestBody fileBody = new ProgressRequestBody(file,this);
         MultipartBody.Part filePart = MultipartBody.Part.createFormData("image", file.getName(), fileBody);
-
-//        RequestBody fileReqBody = RequestBody.create(MediaType.parse("multipart/form-data"), file);
-//        MultipartBody.Part filePart = MultipartBody.Part.createFormData("image", file.getName(), fileReqBody);
-        RequestBody description =
-                RequestBody.create(
-                        okhttp3.MultipartBody.FORM, "Imgg");
+        RequestBody description = RequestBody.create(MediaType.parse("text/plain"), "image-type");
         Call<ResponseBody> call = api.uploadImage(filePart, description);
         call.enqueue(new Callback<ResponseBody>() {
             @Override
             public void onResponse(Call<ResponseBody> call,
                                    Response<ResponseBody> response) {
-                Log.v("Upload", "success");
+                Log.e("Upload success:", response.message());
             }
 
             @Override
@@ -100,6 +92,7 @@ public class MainActivity extends AppCompatActivity implements ProgressRequestBo
             if (requestCode == PICK_IMAGE) {
                 selectedImageUri = data.getData();
                 selectedImagePath = getRealPathFromURI(selectedImageUri);
+                Log.e("Image Path",selectedImagePath);
                 image_view.setImageURI(selectedImageUri);
             }
         }
@@ -107,41 +100,20 @@ public class MainActivity extends AppCompatActivity implements ProgressRequestBo
 
 
 
-    // This doesn't work don't know why
+    // This works now
     private String getRealPathFromURI(Uri contentUri) {
-        String[] filePathColumn = { MediaStore.Images.Media.DATA };
-        // Get the cursor
-        Cursor cursor = getContentResolver().query(contentUri, filePathColumn, null, null, null);
-        // Move to first row
-        cursor.moveToFirst();
-        //Get the column index of MediaStore.Images.Media.DATA
-        int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-        //Gets the String value in the column
-        String imgDecodableString = cursor.getString(columnIndex);
-        cursor.close();
-        return imgDecodableString;
+        File file = new File(contentUri.getPath());
+        String imagePath="";
+        String[] filePath = file.getPath().split(":");
+        String image_id = filePath[filePath.length - 1];
+        Cursor cursor = getContentResolver().query(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, null, MediaStore.Images.Media._ID + " = ? ", new String[]{image_id}, null);
+        if (cursor!=null) {
+            cursor.moveToFirst();
+            imagePath = cursor.getString(cursor.getColumnIndex(MediaStore.Images.Media.DATA));
+            cursor.close();
+        }
+        return imagePath;
     }
-//    public String getFilePath(Uri uri) {
-//        // just some safety built in
-//        if( uri == null ) {
-//            // TODO perform some logging or show user feedback
-//            return null;
-//        }
-//        // try to retrieve the image from the media store first
-//        // this will only work for images selected from gallery
-//        String[] projection = { MediaStore.Images.Media.DATA };
-//        Cursor cursor = getContentResolver().query(uri, projection, null, null, null);
-//        if( cursor != null ){
-//            int column_index = cursor
-//                    .getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
-//            cursor.moveToFirst();
-//            String path = cursor.getString(column_index);
-//            cursor.close();
-//            return path;
-//        }
-//        // this is our fallback here
-//        return uri.getPath();
-//    }
 
     @Override
     public void onProgressUpdate(int percentage) {
